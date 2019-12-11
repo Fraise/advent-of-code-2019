@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 )
 
 type pair struct {
@@ -40,8 +41,124 @@ func main() {
 		num++
 	}
 
-	maxAst := 0
+	max, pos := detectAstAngle(asteroids)
 
+	fmt.Printf("The maximum number of asteroids detected is %v at position %v\n", max, pos)
+
+	posVap := vaporiseAstAngle(asteroids, pos.lin, pos.col, 200)
+
+	fmt.Printf("The 200th vaporised asteroid is as pos %v, thus the answer is %v\n", posVap, posVap.col*100+posVap.lin)
+}
+
+func detectAstAngle(asteroids [][]bool) (maxAst int, p pair) {
+	for i := 0; i < len(asteroids); i++ {
+		for j := 0; j < len(asteroids[0]); j++ {
+			if !asteroids[i][j] {
+				continue
+			}
+
+			amap := map[float64]bool{}
+
+			for k := 0; k < len(asteroids); k++ {
+				for l := 0; l < len(asteroids[0]); l++ {
+					if !asteroids[k][l] {
+						continue
+					}
+
+					angle := math.Atan2(float64(k-i), float64(l-j))
+
+					amap[angle] = true
+				}
+			}
+
+			if len(amap) > maxAst {
+				maxAst = len(amap)
+				p = pair{i, j}
+			}
+		}
+	}
+
+	return maxAst, p
+}
+
+func vaporiseAstAngle(asteroids [][]bool, lin int, col int, numDest int) (coord pair) {
+	amap := map[float64][]pair{}
+	var start float64
+
+	for i := 0; i < len(asteroids); i++ {
+		for j := 0; j < len(asteroids[0]); j++ {
+			if !asteroids[i][j] {
+				continue
+			}
+
+			angle := math.Atan2(float64(i-lin), float64(j-col))
+
+			if i-lin < 0 && j-col == 0 {
+				start = angle
+			}
+
+			if amap[angle] == nil {
+				amap[angle] = []pair{pair{i, j}}
+			} else {
+				arr := amap[angle]
+
+				arr = append(arr, pair{i, j})
+
+				amap[angle] = arr
+			}
+		}
+	}
+
+	//Sort angles
+	var list []float64
+
+	for k := range amap {
+		list = append(list, k)
+	}
+
+	sort.Float64s(list)
+
+	var startPos int
+
+	for i, v := range list {
+		if v == start {
+			startPos = i
+			break
+		}
+	}
+
+	count := 0
+
+	for count < numDest {
+		pos := list[startPos]
+		min := 1000000
+
+		for _, p := range amap[pos] {
+			currMin := int(math.Abs(float64(p.col-col)) + math.Abs(float64(p.lin-lin)))
+			if currMin < min {
+				min = currMin
+			}
+		}
+
+		for i, p := range amap[pos] {
+			currMin := int(math.Abs(float64(p.col-col)) + math.Abs(float64(p.lin-lin)))
+			if currMin == min {
+				if count == numDest-1 {
+					coord = p
+				} else {
+					copy(amap[pos][i:], amap[pos][i+1:])
+				}
+			}
+		}
+
+		startPos = (startPos + 1) % len(list)
+		count++
+	}
+
+	return coord
+}
+
+func detectAst(asteroids [][]bool) (maxAst int) {
 	for i := 0; i < len(asteroids); i++ {
 		for j := 0; j < len(asteroids[0]); j++ {
 			if !asteroids[i][j] {
@@ -205,7 +322,7 @@ func main() {
 		}
 	}
 
-	fmt.Printf("The maximum number of asteroids detected is : %v\n", maxAst)
+	return maxAst
 }
 
 func makeCopy(asteroids [][]bool) [][]bool {
